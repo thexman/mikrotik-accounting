@@ -1,0 +1,22 @@
+ [Unit]
+ Description=Mikrotik accounting service
+ After=network.target
+
+ [Service]
+ Type=simple
+ User=root
+
+ WorkingDirectory=/usr/local/bin
+ ExecStart=/usr/bin/java -jar /opt/mikrotik-accounting-1.0-SNAPSHOT-jar-with-dependencies.jar -r 192.168.88.1 -n  192.168.88.0/24 -d http://127.0.0.1:8086 -db TrafficByIp -u traffic -p secretpassword
+
+ StandardOutput=journal
+ StandardError=journal
+ SyslogIdentifier=mikrotik-accounting
+
+ SuccessExitStatus=143
+ TimeoutStopSec=10
+ Restart=on-failure
+ RestartSec=60
+
+ [Install]
+ WantedBy=multi-user.target

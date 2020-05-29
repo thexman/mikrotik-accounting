@@ -23,11 +23,14 @@ import com.a9ski.mikrotik.model.TrafficData;
 public class InfluxDbClient implements Closeable {
 	private static final String RETENTION_POLICY = "180_days_retention_policy";
 	private static final String MEASUREMENT = "IPTrafficData";
-	private final InfluxDB influxDB;
+	private InfluxDB influxDB;
 	private final String routerIp;
 	private final String databaseName;
 	private final AtomicLong recordsCount = new AtomicLong();
 	private final AtomicBoolean initialized = new AtomicBoolean();
+	private String serverUrl;
+	private String username;
+	private String password;
 
 
 	/**
@@ -41,9 +44,10 @@ public class InfluxDbClient implements Closeable {
 	 */
 	public InfluxDbClient(final String serverUrl, final String username, final String password, final String databaseName, final String routerIp) {
 		this.routerIp = routerIp;
-		influxDB = InfluxDBFactory.connect(serverUrl, username, password);
+		this.serverUrl = serverUrl;
+		this.username = username;
+		this.password = password;
 		this.databaseName = databaseName;
-		// influxDB.enableBatch(BatchOptions.DEFAULTS);
 	}
 
 	/**
@@ -51,9 +55,11 @@ public class InfluxDbClient implements Closeable {
 	 */
 	private void initialize() {
 		if (!initialized.getAndSet(true)) {
+			influxDB = InfluxDBFactory.connect(serverUrl, username, password);
 			influxDB.query(new Query(String.format("CREATE DATABASE %s WITH DURATION 180d REPLICATION 1 NAME \"%s\"", databaseName, RETENTION_POLICY)));
 			influxDB.setRetentionPolicy(RETENTION_POLICY);
 			influxDB.setDatabase(databaseName);
+			// influxDB.enableBatch(BatchOptions.DEFAULTS);
 		}
 	}
 

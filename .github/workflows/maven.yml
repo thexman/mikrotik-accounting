@@ -27,7 +27,11 @@ jobs:
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2        
+        restore-keys: ${{ runner.os }}-m2
+    - name: Delete old versions from GitHub Packages Apache Maven
+      uses: actions/delete-package-versions@v1
+      with:
+        package-name: 'com.a9ski.mikrotik-accounting'
     - name: Get current UTC time
       id: date
       run: echo "::set-output name=date::$(TZ='UTC' date +'.%Y%m%d.%H%M%S')"
@@ -39,11 +43,4 @@ jobs:
     - name: Publish to GitHub Packages Apache Maven 
       env:
         GITHUB_TOKEN: ${{ github.token }} # GITHUB_TOKEN is the default env for the password
-      run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
-    - name: Copy build artifact
-      run: mkdir staging && cp target/*-jar-with-dependencies.jar staging
-    - name: Upload fat jar      
-      uses: actions/upload-artifact@v1
-      with:
-        name: ExecutableJar
-        path: staging
+      run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml    

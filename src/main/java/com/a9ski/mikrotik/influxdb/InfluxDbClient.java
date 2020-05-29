@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.influxdb.InfluxDB;
+import org.influxdb.InfluxDBException;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Point;
 import org.influxdb.dto.Query;
@@ -53,13 +54,14 @@ public class InfluxDbClient implements Closeable {
 	/**
 	 * Creates the database in case it doesn't exists
 	 */
-	private void initialize() {
-		if (!initialized.getAndSet(true)) {
+	private synchronized void initialize() {
+		if (!initialized.get()) {
 			influxDB = InfluxDBFactory.connect(serverUrl, username, password);
 			influxDB.query(new Query(String.format("CREATE DATABASE %s WITH DURATION 180d REPLICATION 1 NAME \"%s\"", databaseName, RETENTION_POLICY)));
 			influxDB.setRetentionPolicy(RETENTION_POLICY);
 			influxDB.setDatabase(databaseName);
 			// influxDB.enableBatch(BatchOptions.DEFAULTS);
+			initialized.set(true);
 		}
 	}
 
@@ -71,16 +73,23 @@ public class InfluxDbClient implements Closeable {
 	 *                the traffic for that IP.
 	 */
 	public void write(final Set<String> lanIps, final Map<String, TrafficData> traffic) {
-		initialize();
+		if (!initialized.get()) {
+			initialize();
+		}
 
 		final long now = System.currentTimeMillis();
 
-		// Write points to InfluxDB.
-		//@formatter:off
-		traffic.keySet().stream()
-			.map(ip -> createPoint(now, ip, lanIps.contains(ip), traffic.get(ip)))
-			.forEach(this::write);
-		//@formatter:on
+		try {
+			// Write points to InfluxDB.
+			//@formatter:off
+			traffic.keySet().stream()
+				.map(ip -> createPoint(now, ip, lanIps.contains(ip), traffic.get(ip)))
+				.forEach(this::write);
+			//@formatter:on
+		} catch (final InfluxDBException ex) {
+			initialized.set(false);
+			throw ex;
+		}
 	}
 
 	/**

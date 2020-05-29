@@ -26,6 +26,12 @@ jobs:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2        
+    - name: Get current UTC time
+      id: date
+      run: echo "::set-output name=date::$(TZ='UTC' date +'.%Y%m%d.%H%M%S')"
+    - name: Update pom version
+      run: 
+        sed -i s/-SNAPSHOT/${{steps.date.outputs.date}}/g pom.xml
     - name: Build with Maven
       run: mvn -B package --file pom.xml
     - name: Copy build artifact

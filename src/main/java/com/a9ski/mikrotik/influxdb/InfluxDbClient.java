@@ -4,6 +4,7 @@ import java.io.Closeable;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.influxdb.InfluxDB;
@@ -24,7 +25,10 @@ public class InfluxDbClient implements Closeable {
 	private static final String MEASUREMENT = "IPTrafficData";
 	private final InfluxDB influxDB;
 	private final String routerIp;
+	private final String databaseName;
 	private final AtomicLong recordsCount = new AtomicLong();
+	private final AtomicBoolean initialized = new AtomicBoolean();
+
 
 	/**
 	 * Creates a new client.
@@ -38,10 +42,19 @@ public class InfluxDbClient implements Closeable {
 	public InfluxDbClient(final String serverUrl, final String username, final String password, final String databaseName, final String routerIp) {
 		this.routerIp = routerIp;
 		influxDB = InfluxDBFactory.connect(serverUrl, username, password);
-		influxDB.query(new Query(String.format("CREATE DATABASE %s WITH DURATION 180d REPLICATION 1 NAME \"%s\"", databaseName, RETENTION_POLICY)));
-		influxDB.setRetentionPolicy(RETENTION_POLICY);
-		influxDB.setDatabase(databaseName);
+		this.databaseName = databaseName;
 		// influxDB.enableBatch(BatchOptions.DEFAULTS);
+	}
+
+	/**
+	 * Creates the database in case it doesn't exists
+	 */
+	private void initialize() {
+		if (!initialized.getAndSet(true)) {
+			influxDB.query(new Query(String.format("CREATE DATABASE %s WITH DURATION 180d REPLICATION 1 NAME \"%s\"", databaseName, RETENTION_POLICY)));
+			influxDB.setRetentionPolicy(RETENTION_POLICY);
+			influxDB.setDatabase(databaseName);
+		}
 	}
 
 	/**
@@ -52,6 +65,8 @@ public class InfluxDbClient implements Closeable {
 	 *                the traffic for that IP.
 	 */
 	public void write(final Set<String> lanIps, final Map<String, TrafficData> traffic) {
+		initialize();
+
 		final long now = System.currentTimeMillis();
 
 		// Write points to InfluxDB.

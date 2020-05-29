@@ -27,20 +27,33 @@ jobs:
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-    - name: Delete old versions from GitHub Packages Apache Maven
-      uses: actions/delete-package-versions@v1
-      with:
-        package-name: 'com.a9ski.mikrotik-accounting'
+        restore-keys: ${{ runner.os }}-m2    
     - name: Get current UTC time
       id: date
       run: echo "::set-output name=date::$(TZ='UTC' date +'.%Y%m%d.%H%M%S')"
     - name: Update pom version
       run: 
         sed -i s/-SNAPSHOT/${{steps.date.outputs.date}}/g pom.xml
-    - name: Build with Maven      
+    - name: Build with Maven
       run: mvn -B install --file pom.xml
-    - name: Publish to GitHub Packages Apache Maven 
-      env:
-        GITHUB_TOKEN: ${{ github.token }} # GITHUB_TOKEN is the default env for the password
-      run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml    
+    #- name: Publish to GitHub Packages Apache Maven 
+    #  env:
+    #    GITHUB_TOKEN: ${{ github.token }} # GITHUB_TOKEN is the default env for the password
+    #  run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
+    #- name: Delete old versions from GitHub Packages Apache Maven
+    #  uses: actions/delete-package-versions@v1
+    #  with:
+    #    package-name: 'com.a9ski.mikrotik-accounting'
+    - name: Copy build artifact
+      run: mkdir staging && cp target/*-jar-with-dependencies.jar staging
+    - name: Upload fat jar      
+      uses: actions/upload-artifact@v1
+      with:
+        name: ExecutableJar
+        path: staging
+    - name: Remove old artifacts
+      uses: c-hive/gha-remove-artifacts@v1
+      with:
+        age: '1 minute'        
+        skip-recent: 1        
+        # skip-tags: true
